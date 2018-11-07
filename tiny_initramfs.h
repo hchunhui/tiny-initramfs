@@ -138,6 +138,7 @@ int is_valid_device_name(const char *device_name, int *type, unsigned int* major
 /* util.c */
 void append_to_buf(char *buf, size_t size, ...);
 void set_buf(char *buf, size_t size, ...);
+void ulltoa(unsigned long long x, char *buf);
 
 #ifdef ENABLE_NFS4
 /* nfs.c */

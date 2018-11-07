@@ -63,3 +63,24 @@ void set_buf(char *buf, size_t size, ...)
   append_to_buf_v(buf, size, ap);
   va_end(ap);
 }
+
+void ulltoa(unsigned long long x, char *buf)
+{
+  int i, l;
+  char t;
+
+  l = 0;
+  do {
+    buf[l] = '0' + x % 10;
+    x /= 10;
+    l++;
+  } while (x);
+
+  buf[l] = 0;
+
+  for (i = 0; i < l/2; i++) {
+    t = buf[i];
+    buf[i] = buf[l - 1 - i];
+    buf[l - 1 - i] = t;
+  }
+}

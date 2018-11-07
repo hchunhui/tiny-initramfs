@@ -25,9 +25,9 @@
 #include <errno.h>
 #include <string.h>
 #include <limits.h>
+#include <sys/stat.h>
 #if defined(ENABLE_MODULES)
 #if !defined(HAVE_FINIT_MODULE) && !defined(HAVE_SYS_FINIT_MODULE)
-#include <sys/stat.h>
 #include <sys/mman.h>
 #elif defined(HAVE_SYS_FINIT_MODULE)
 #include <sys/syscall.h>
@@ -68,6 +68,49 @@ static int root_delay;
 static int root_wait_indefinitely;
 static char init_binary[MAX_PATH_LEN];
 static int global_rw;
+static char resume_device[MAX_PATH_LEN];
+static unsigned long long resume_offset;
+
+static int try_resume(void)
+{
+  int r;
+  int fd;
+  char s[96];
+  char sma[16], smi[16], ofs[32];
+  struct stat st;
+  char real_device_name[MAX_PATH_LEN] = { 0 };
+  int timeout_togo = DEVICE_TIMEOUT;
+
+  wait_for_device(real_device_name, &timeout_togo, resume_device, 0);
+
+  r = mkdir("/sys", 0755);
+  if (r < 0) {
+    warn("Could not mkdir /sys", NULL);
+    return 1;
+  }
+
+  r = mount("sys", "/sys", "sysfs", 0, NULL);
+  if (r < 0) {
+    warn("Could not mount /sys", NULL);
+    rmdir("/sys");
+    return 2;
+  }
+
+  if (stat(real_device_name, &st) == 0 && S_ISBLK(st.st_mode)) {
+    fd = open("/sys/power/resume", O_WRONLY);
+    ulltoa(major(st.st_rdev), sma);
+    ulltoa(minor(st.st_rdev), smi);
+    ulltoa(resume_offset, ofs);
+    s[0] = 0;
+    append_to_buf(s, 96, sma, ":", smi, ":", ofs, NULL);
+    write(fd, s, strlen(s));
+    close(fd);
+  }
+
+  umount("/sys");
+  rmdir("/sys");
+  return 3;
+}
 
 int main(int argc, char **argv)
 {
@@ -111,6 +154,8 @@ int main(int argc, char **argv)
 #ifdef ENABLE_DEBUG
   warn("Parsed ", PROC_CMDLINE_FILENAME, NULL);
 #endif
+
+  try_resume();
 
   if (!strlen(root_device)) {
 #ifdef ENABLE_NFS4
@@ -366,6 +411,16 @@ int parse_cmdline_helper(void *data, const char *line, int line_is_incomplete)
       if (strlen(token) > MAX_PATH_LEN - 1)
         panic(0, "Parameter init=", token, " too long", NULL);
       set_buf(init_binary, MAX_PATH_LEN, token, NULL);
+    } else if (!strncmp(token, "resume=", 7)) {
+      token += 7;
+      if (strlen(token) > MAX_PATH_LEN - 1)
+        panic(0, "Parameter resume=", token, " too long", NULL);
+      set_buf(resume_device, MAX_PATH_LEN, token, NULL);
+    } else if (!strncmp(token, "resume_offset=", 14)) {
+      token += 14;
+      resume_offset = strtoull(token, &endptr, 10);
+      if (!*token || !endptr || *endptr)
+        panic(0, "Invalid resume_offset=", token, " value,", NULL);
     }
 #ifdef ENABLE_NFS4
     else if (!strncmp(token, "nfsroot=", 8)) {
