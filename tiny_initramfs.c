@@ -603,7 +603,7 @@ int load_module_helper(void *data, const char *line, int line_is_incomplete)
 
   /* Ignore duplicate modules, this simplifies initramfs creation logic
    * a bit. */
-  if (r < 0 && r != -EEXIST)
+  if (r < 0 && r != -EEXIST && r != -ENODEV)
     warn("Couldn't load ", line, ": ", strerror(-r), NULL);
 
   close(fd);
