@@ -155,7 +155,8 @@ int main(int argc, char **argv)
   warn("Parsed ", PROC_CMDLINE_FILENAME, NULL);
 #endif
 
-  try_resume();
+  if (resume_device[0])
+    try_resume();
 
   if (!strlen(root_device)) {
 #ifdef ENABLE_NFS4
@@ -415,12 +416,14 @@ int parse_cmdline_helper(void *data, const char *line, int line_is_incomplete)
       token += 7;
       if (strlen(token) > MAX_PATH_LEN - 1)
         panic(0, "Parameter resume=", token, " too long", NULL);
+      if (!is_valid_device_name(token, NULL, NULL, NULL, NULL))
+        warn("Parameter resume=", token, " unsupported, ignored", NULL);
       set_buf(resume_device, MAX_PATH_LEN, token, NULL);
     } else if (!strncmp(token, "resume_offset=", 14)) {
       token += 14;
       resume_offset = strtoull(token, &endptr, 10);
       if (!*token || !endptr || *endptr)
-        panic(0, "Invalid resume_offset=", token, " value,", NULL);
+        panic(0, "Invalid resume_offset=", token, " value", NULL);
     }
 #ifdef ENABLE_NFS4
     else if (!strncmp(token, "nfsroot=", 8)) {
